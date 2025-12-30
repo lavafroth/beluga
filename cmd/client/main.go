@@ -24,7 +24,7 @@ func main() {
 
 	log.Printf("creating socket at %s", socketPath)
 
-	cmd := exec.Command("mpv", videoStream, fmt.Sprintf("--input-ipc-server=%s", socketPath), "--force-window=immediate")
+	cmd := exec.Command("mpv", videoStream, fmt.Sprintf("--input-ipc-server=%s", socketPath), "--force-window=immediate", "--pause")
 	log.Print(cmd)
 
 	done := make(chan error)
@@ -77,7 +77,7 @@ type ConnCouple struct {
 
 func handleMpv(couple *ConnCouple) {
 	const observePause = "{ \"command\": [\"observe_property\", 1, \"pause\"] }\n"
-	const getTime = "{ \"command\": [\"get_property\", \"time-pos\"], request_id: %d }\n"
+	const getTime = "{ \"command\": [\"get_property\", \"time-pos\"] }\n"
 	couple.mpv.Write([]byte(observePause))
 	mpvReader := bufio.NewReader(couple.mpv)
 
@@ -119,7 +119,7 @@ func handleMpv(couple *ConnCouple) {
 			}
 
 		} else if eventExists && event == "seek" {
-			couple.mpv.Write([]byte(fmt.Sprintf(getTime, 0)))
+			couple.mpv.Write([]byte(getTime))
 		} else if error, exists := blob["error"]; exists {
 			if error != "success" {
 				log.Print("seek time request failed: %s", error)
@@ -166,7 +166,7 @@ func handleNet(couple *ConnCouple) {
 		log.Printf("net: %s", message)
 		time, err := strconv.ParseFloat(messageStr, 64)
 		if err == nil {
-			command := fmt.Sprintf("{ \"command\": [\"seek\", %f, \"absolute\"], \"request_id\": %d }\n", time, 0)
+			command := fmt.Sprintf("{ \"command\": [\"seek\", %f, \"absolute\"] }\n", time)
 			couple.mpv.Write([]byte(command))
 			couple.hasSeeked = true
 			// couple.id += 1
@@ -175,7 +175,7 @@ func handleNet(couple *ConnCouple) {
 
 		pause, err := strconv.ParseBool(messageStr)
 		if err == nil {
-			command := fmt.Sprintf("{ \"command\": [\"set_property\", \"pause\", %t], \"request_id\": %d }\n", pause, 0)
+			command := fmt.Sprintf("{ \"command\": [\"set_property\", \"pause\", %t] }\n", pause)
 			couple.mpv.Write([]byte(command))
 			couple.hasPaused = true
 			// couple.id += 1
