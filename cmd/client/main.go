@@ -9,15 +9,41 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 )
 
 func main() {
 	flag.Parse()
 
 	dial := flag.Arg(0)
-	videoStream := flag.Arg(1)
+	var videoStream string
+
+	entries, err := os.ReadDir("./")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, entry := range entries {
+		if !entry.Type().IsRegular() {
+			continue
+		}
+
+		out, err := exec.Command("xdg-mime", "query", "filetype", entry.Name()).Output()
+		if err != nil {
+			log.Printf("failed to read mime-type of %s: %v", entry.Name(), err)
+		}
+
+		if strings.HasPrefix(string(out), "video") {
+			videoStream = entry.Name()
+		}
+	}
+
+	if videoStream == "" {
+		log.Fatal("found no playable video file in this directory")
+	}
 
 	socketName := rand.Text()
 	socketPath := fmt.Sprintf("/tmp/%s", socketName)
@@ -33,7 +59,7 @@ func main() {
 	}()
 
 	var mpv net.Conn
-	err := errors.New("unix socket connection no initiated")
+	err = errors.New("unix socket connection no initiated")
 	for err != nil {
 		select {
 		case err := <-done:
